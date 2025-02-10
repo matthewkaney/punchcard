@@ -4,6 +4,7 @@
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
     "target": "ESNext",
+    "module": "ESNext",
     "moduleResolution": "bundler"
   }
 }

@@ -13,7 +13,7 @@ window.addEventListener("load", () => {
             <StrudelMini miniPattern="a b c d" />
             <StrudelMini miniPattern="a [b c] d" />
             <StrudelMini miniPattern="a(3, 8)" />
-            <StrudelMini miniPattern="[a b c, a b c d]" />
+            <StrudelMini miniPattern="a b c, a b c d" />
           </div>
           <div>
             <StrudelMini miniPattern="[a?]*8" span={[0, 2]} />

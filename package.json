@@ -2,6 +2,7 @@
   "name": "punchcard",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "description": "Visualization library for Tidal-like patterns",
   "scripts": {
     "dev": "parcel src/docs/index.html",
@@ -10,12 +11,12 @@
   "author": "Matthew Kaney",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
-    "@strudel/mini": "~1.0.0",
+    "@strudel/mini": "^1.1.0",
     "preact": "^10.25.4",
     "typescript": "^5.7.3"
   },
   "devDependencies": {
-    "parcel": "^2.13.3"
+    "vite": "^6.1.0"
   },
   "alias": {
     "preact/jsx-dev-runtime": "preact/jsx-runtime"
