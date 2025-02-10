@@ -21,5 +21,7 @@ export function StrudelMini({ miniPattern, span }: StrudelMiniProps) {
     value,
   }));
 
-  return <Diagram haps={haps} span={{ begin, end }} steps={4} />;
+  return (
+    <Diagram title={`"${miniPattern}"`} haps={haps} span={{ begin, end }} />
+  );
 }

@@ -2,6 +2,7 @@ import { createContext, VNode } from "preact";
 import { useContext } from "preact/hooks";
 
 import { Span, Hap } from "./types";
+import { splitIntoRows } from "./haps";
 
 interface ScaleSpec {
   span: Span;
@@ -11,7 +12,7 @@ interface ScaleSpec {
 
 const defaultScale = {
   span: { begin: 0, end: 1 },
-  canvas: { horiz: { begin: 20, end: 480 }, vert: { begin: 20, end: 80 } },
+  canvas: { horiz: { begin: 0, end: 490 }, vert: { begin: 0, end: 50 } },
 };
 
 const Scale = createContext<ScaleSpec>(defaultScale);
@@ -24,23 +25,29 @@ export interface PatternDiagram {
 interface DiagramProps {
   haps: Hap<string | number>[];
   span: Span;
+  title?: string;
   steps?: number;
 }
 
-export function Diagram({ haps, span, steps }: DiagramProps) {
-  console.log(steps);
+export function Diagram({ haps, span, title, steps }: DiagramProps) {
+  const rows = splitIntoRows(haps);
+
+  const height = rows.length * 50 + 70;
+
   return (
     <Scale.Provider value={{ ...defaultScale, span, steps }}>
-      <svg width="500" height="120">
-        <Background />
-        {haps.map(({ whole, part, value }) => (
-          <Hap
-            whole={whole}
-            part={part}
-            label={typeof value === "string" ? value : value.toString()}
-          />
+      <svg width="500" height={height}>
+        <text x="5" y="20" fill="#fff" font-family="monospace">
+          {title}
+        </text>
+        {...rows.map((rowHaps, index) => (
+          <g transform={`translate(5, ${30 + 50 * index})`}>
+            <Row haps={rowHaps} />
+          </g>
         ))}
-        <Axis />
+        <g transform={`translate(5, ${30 + 50 * (rows.length - 1)})`}>
+          <Axis />
+        </g>
       </svg>
     </Scale.Provider>
   );
@@ -63,6 +70,71 @@ export function Background() {
   );
 }
 
+interface RowProps {
+  haps: Hap<string | number>[];
+}
+
+export function Row({ haps }: RowProps) {
+  const {
+    canvas: { vert, horiz },
+    span,
+  } = useContext(Scale);
+
+  return (
+    <>
+      <line
+        x1={horiz.begin}
+        x2={horiz.end}
+        y1={vert.begin}
+        y2={vert.begin}
+        stroke="#FFF"
+        stroke-width={2}
+      />
+      <line
+        x1={horiz.begin}
+        x2={horiz.end}
+        y1={vert.end}
+        y2={vert.end}
+        stroke="#FFF"
+        stroke-width={2}
+      />
+      {
+        /* We're assuming haps are sorted here */
+        (haps.length === 0 || haps[0].part.begin !== span.begin) && (
+          <line
+            x1={horiz.begin + 1}
+            x2={horiz.begin + 1}
+            y1={vert.begin}
+            y2={vert.end}
+            stroke="#FFF"
+            stroke-width={2}
+          />
+        )
+      }
+      {
+        /* We're assuming haps are sorted here */
+        (haps.length === 0 || haps[haps.length - 1].part.end !== span.end) && (
+          <line
+            x1={horiz.end - 1}
+            x2={horiz.end - 1}
+            y1={vert.begin}
+            y2={vert.end}
+            stroke="#FFF"
+            stroke-width={2}
+          />
+        )
+      }
+      {haps.map(({ whole, part, value }) => (
+        <Hap
+          whole={whole}
+          part={part}
+          label={typeof value === "string" ? value : value.toString()}
+        />
+      ))}
+    </>
+  );
+}
+
 export function Axis() {
   const {
     span,
@@ -76,7 +148,7 @@ export function Axis() {
   const firstStep = Math.ceil(span.begin * steps) / steps;
 
   for (let i = firstStep; i <= span.end; i += 1 / steps) {
-    let x = map(i, span, contract(3, horiz));
+    let x = map(i, span, contract(2, horiz));
 
     if (i === Math.trunc(i)) {
       ticks.push(
@@ -84,14 +156,14 @@ export function Axis() {
           <line
             x1={x}
             x2={x}
-            y1={vert.end + 3}
-            y2={vert.end + 20}
+            y1={vert.end}
+            y2={vert.end + 15}
             stroke="#FFF"
-            stroke-width={3}
+            stroke-width={2}
           />
           <text
             x={x}
-            y={vert.end + 23}
+            y={vert.end + 18}
             fill="white"
             text-anchor="middle"
             dominant-baseline="hanging"
@@ -105,8 +177,8 @@ export function Axis() {
         <line
           x1={x}
           x2={x}
-          y1={vert.end + 3}
-          y2={vert.end + 17}
+          y1={vert.end + 0}
+          y2={vert.end + 15}
           stroke="#FFF"
           stroke-width={2}
         />
@@ -130,8 +202,8 @@ export function Hap({ whole, part, label }: HapProps) {
   } = useContext(Scale);
   const { begin, end } = part;
 
-  const x1 = map(begin, span, horiz);
-  const x2 = map(end, span, horiz);
+  const x1 = map(begin, span, contract(2, horiz));
+  const x2 = map(end, span, contract(2, horiz));
 
   const { begin: y1, end: y2 } = vert;
 
@@ -145,24 +217,33 @@ export function Hap({ whole, part, label }: HapProps) {
         y={y1}
         width={x2 - x1}
         height={length(vert)}
-        fill={hasOnset ? "#ffffff33" : "none"}
+        fill={hasOnset ? "#ffffff33" : "#ffffff11"}
         stroke="none"
-      ></rect>
-      {hasOnset && (
-        <line
-          x1={x1 + 1.5}
-          y1={y1}
-          x2={x1 + 1.5}
-          y2={y2}
-          stroke="#fff"
-          stroke-width="3"
-        ></line>
-      )}
+      />
+      <line
+        x1={x1}
+        y1={y1}
+        x2={x1}
+        y2={y2}
+        stroke="#fff"
+        stroke-width="2"
+        stroke-dasharray={hasOnset ? undefined : "5"}
+      />
+      <line
+        x1={x2}
+        y1={y1}
+        x2={x2}
+        y2={y2}
+        stroke="#fff"
+        stroke-width="2"
+        stroke-dasharray={hasOffset ? undefined : "5"}
+      />
       <text
         x={x1 + (x2 - x1) * 0.5}
         y={vert.begin + length(vert) * 0.5}
         fill="white"
         text-anchor="middle"
+        dominant-baseline="middle"
       >
         {label}
       </text>

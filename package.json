@@ -1,6 +1,7 @@
 {
   "name": "punchcard",
   "version": "0.0.1",
+  "private": true,
   "description": "Visualization library for Tidal-like patterns",
   "scripts": {
     "dev": "parcel src/docs/index.html",
