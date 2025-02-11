@@ -5,12 +5,13 @@
   "type": "module",
   "description": "Visualization library for Tidal-like patterns",
   "scripts": {
-    "dev": "parcel src/docs/index.html",
+    "dev": "vite src/docs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Matthew Kaney",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
+    "@strudel/core": "^1.1.0",
     "@strudel/mini": "^1.1.0",
     "preact": "^10.25.4",
     "typescript": "^5.7.3"

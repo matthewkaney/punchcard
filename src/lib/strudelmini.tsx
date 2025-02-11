@@ -13,8 +13,20 @@ const spanToNumbers = (span: Span) => ({
 });
 
 export function StrudelMini({ miniPattern, span }: StrudelMiniProps) {
-  const [begin, end] = span ?? [0, 1];
   const pattern = mini(miniPattern);
+  return (
+    <StrudelPattern title={`"${miniPattern}"`} pattern={pattern} span={span} />
+  );
+}
+
+interface StrudelPatternProps {
+  title?: string;
+  pattern: any;
+  span?: [number, number];
+}
+
+export function StrudelPattern({ title, pattern, span }: StrudelPatternProps) {
+  const [begin, end] = span ?? [0, 1];
   const haps = pattern.queryArc(begin, end).map(({ whole, part, value }) => ({
     whole: whole ? spanToNumbers(whole) : undefined,
     part: spanToNumbers(part),
@@ -23,7 +35,7 @@ export function StrudelMini({ miniPattern, span }: StrudelMiniProps) {
 
   return (
     <Diagram
-      title={`"${miniPattern}"`}
+      title={title}
       haps={haps}
       span={{ begin, end }}
       steps={pattern.tactus}
