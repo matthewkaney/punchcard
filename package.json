@@ -13,6 +13,7 @@
   "dependencies": {
     "@strudel/core": "^1.1.0",
     "@strudel/mini": "^1.1.0",
+    "fraction.js": "^5.2.1",
     "preact": "^10.25.4",
     "typescript": "^5.7.3"
   },

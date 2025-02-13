@@ -1,44 +1,67 @@
 // @ts-nocheck
 import { mini } from "@strudel/mini";
+
 import { Diagram } from "./diagram";
+import { Span, FractionInput } from "./Span";
+import { Hap } from "./Hap";
 
 interface StrudelMiniProps {
   miniPattern: string;
   span?: [number, number];
+  highlight?: [number, number];
 }
 
-const spanToNumbers = (span: Span) => ({
-  begin: span.begin.valueOf(),
-  end: span.end.valueOf(),
-});
-
-export function StrudelMini({ miniPattern, span }: StrudelMiniProps) {
+export function StrudelMini({
+  miniPattern,
+  span,
+  highlight,
+}: StrudelMiniProps) {
   const pattern = mini(miniPattern);
   return (
-    <StrudelPattern title={`"${miniPattern}"`} pattern={pattern} span={span} />
+    <StrudelPattern
+      title={`"${miniPattern}"`}
+      pattern={pattern}
+      span={span}
+      highlight={highlight}
+    />
   );
+}
+
+export function portSpan(span?: any): Span | undefined {
+  if (span === undefined) {
+    return undefined;
+  }
+
+  return new Span(span.begin, span.end);
 }
 
 interface StrudelPatternProps {
   title?: string;
   pattern: any;
-  span?: [number, number];
+  span?: [FractionInput, FractionInput];
 }
 
-export function StrudelPattern({ title, pattern, span }: StrudelPatternProps) {
+export function StrudelPattern({
+  title,
+  pattern,
+  span,
+  highlight,
+}: StrudelPatternProps) {
   const [begin, end] = span ?? [0, 1];
-  const haps = pattern.queryArc(begin, end).map(({ whole, part, value }) => ({
-    whole: whole ? spanToNumbers(whole) : undefined,
-    part: spanToNumbers(part),
-    value,
-  }));
+  const haps = pattern
+    .queryArc(begin, end)
+    .map(
+      ({ whole, part, value }) =>
+        new Hap(portSpan(whole), portSpan(part), value)
+    );
 
   return (
     <Diagram
       title={title}
       haps={haps}
-      span={{ begin, end }}
+      span={new Span(begin, end)}
       steps={pattern.tactus}
+      highlight={highlight ? new Span(highlight[0], highlight[1]) : undefined}
     />
   );
 }

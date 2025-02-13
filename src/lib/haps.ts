@@ -1,7 +1,14 @@
-import { Hap } from "./types";
+import { Span } from "./Span";
+import { Hap } from "./Hap";
+
+export function intersectHaps<A>(span: Span, haps: Hap<A>[]) {
+  return haps.map((hap) => hap.intersect(span)).filter((hap) => hap !== null);
+}
 
 export function sortByOnset<A>(haps: Hap<A>[]): Hap<A>[] {
-  return haps.toSorted((a, b) => Math.sign(a.part.begin - b.part.begin));
+  return haps.toSorted((a, b) =>
+    Math.sign(a.part.begin.sub(b.part.begin).valueOf())
+  );
 }
 
 export function splitIntoRows<A>(haps: Hap<A>[]): Hap<A>[][] {
