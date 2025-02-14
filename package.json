@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Visualization library for Tidal-like patterns",
   "scripts": {
-    "dev": "vite src/docs",
+    "dev": "vite src/playground",
+    "build": "vite build src/playground",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Matthew Kaney",
