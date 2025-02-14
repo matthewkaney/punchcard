@@ -1,4 +1,5 @@
-import { Span } from "./Span";
+import { Fraction } from "fraction.js";
+import { Span, FractionInput } from "./Span";
 
 export class Hap<A> {
   constructor(
@@ -14,5 +15,29 @@ export class Hap<A> {
 
   withPart(part: Span) {
     return new Hap(this.whole, part, this.value);
+  }
+
+  get hasOnset() {
+    return this.whole?.begin.equals(this.part.begin) ?? false;
+  }
+
+  get hasOffset() {
+    return this.whole?.end.equals(this.part.end) ?? false;
+  }
+
+  follows(previous: FractionInput | Hap<unknown>): boolean {
+    if (previous instanceof Hap) {
+      return this.follows(previous.part.end);
+    } else {
+      return this.part.begin.equals(previous);
+    }
+  }
+
+  leads(next: FractionInput | Hap<unknown>): boolean {
+    if (next instanceof Hap) {
+      return this.leads(next.part.begin);
+    } else {
+      return this.part.end.equals(next);
+    }
   }
 }

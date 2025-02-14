@@ -33,13 +33,18 @@ interface DiagramProps {
 }
 
 export function Diagram({ haps, span, title, steps, highlight }: DiagramProps) {
-  const rows = splitIntoRows(haps);
+  let rows = splitIntoRows(haps);
 
+  if (rows.length === 0) {
+    rows = [[]];
+  }
+
+  const width = 500;
   const height = rows.length * 50 + 70;
 
   return (
     <Scale.Provider value={{ ...defaultScale, span, steps }}>
-      <svg width="500" height={height}>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
         <text x="5" y="20" fill="#fff" font-family="monospace">
           {title}
         </text>
@@ -74,6 +79,7 @@ export function Row({ haps, highlight }: RowProps) {
               ? span.crop(span.begin, highlight.begin)
               : new Span(span.begin, span.begin)
           }
+          showEdge="left"
         />
       </g>
       <g style="color: #ffffff">
@@ -90,6 +96,7 @@ export function Row({ haps, highlight }: RowProps) {
               ? span.crop(highlight.end, span.end)
               : new Span(span.end, span.end)
           }
+          showEdge="right"
         />
       </g>
     </>
@@ -120,30 +127,64 @@ export function RowSlice({ haps, slice, showEdge }: RowSliceProps) {
   let sliceHoriz = horiz.map(slice, span);
   let visibleSlice = sliceHoriz.contract(leftEdge, rightEdge);
 
+  let renderedHaps: VNode[] = [];
+
+  // Slice haps
+  haps = intersectHaps(slice, haps);
+
+  for (let i = 0; i < haps.length; ++i) {
+    let hap = haps[i];
+    let { value } = hap;
+    let beginStyle: EdgeStyle, endStyle: EdgeStyle;
+
+    if (i === 0) {
+      beginStyle =
+        hap.follows(slice.begin) && leftEdge === 1 ? "none" : "visible";
+    } else {
+      beginStyle = "visible";
+    }
+
+    if (i === haps.length - 1) {
+      endStyle = hap.leads(slice.end) && rightEdge === 1 ? "none" : "visible";
+    } else {
+      endStyle = hap.leads(haps[i + 1]) ? "none" : "visible";
+    }
+
+    renderedHaps.push(
+      <HapRenderer
+        hap={hap}
+        beginStyle={beginStyle}
+        endStyle={endStyle}
+        label={typeof value === "string" ? value : JSON.stringify(value)}
+      />
+    );
+  }
+
   return (
     <>
-      <Line.H x1={visibleSlice.begin} x2={visibleSlice.end} y={vert.begin} />
-      <Line.H x1={visibleSlice.begin} x2={visibleSlice.end} y={vert.end} />
+      <Line.H
+        x1={visibleSlice.begin}
+        x2={visibleSlice.end}
+        y={vert.begin.sub(1)}
+      />
+      <Line.H
+        x1={visibleSlice.begin}
+        x2={visibleSlice.end}
+        y={vert.end.add(1)}
+      />
       {
         /* We're assuming haps are sorted here */
-        (haps.length === 0 || !haps[0].part.begin.equals(span.begin)) && (
+        (haps.length === 0 || !haps[0].follows(slice.begin)) && (
           <Line.V x={sliceHoriz.begin} y1={vert.begin} y2={vert.end} />
         )
       }
       {
         /* We're assuming haps are sorted here */
-        (haps.length === 0 ||
-          !haps[haps.length - 1].part.end.equals(span.end)) && (
+        (haps.length === 0 || !haps[haps.length - 1].leads(slice.end)) && (
           <Line.V x={sliceHoriz.end} y1={vert.begin} y2={vert.end} />
         )
       }
-      {intersectHaps(slice, haps).map(({ whole, part, value }) => (
-        <HapRenderer
-          whole={whole}
-          part={part}
-          label={typeof value === "string" ? value : value.toString()}
-        />
-      ))}
+      {renderedHaps}
     </>
   );
 }
@@ -157,13 +198,13 @@ export function Axis() {
 
   const ticks: VNode[] = [];
 
-  const steps = providedSteps ?? 1;
-  const firstStep = Math.ceil(span.begin.valueOf() * steps) / steps;
+  const steps = new Fraction(providedSteps ?? 1);
+  const firstStep = span.begin.mul(steps).ceil().div(steps);
 
-  for (let i = firstStep; i <= span.end.valueOf(); i += 1 / steps) {
-    let x = horiz.contract(2).map(i, span);
+  for (let i = firstStep; i.lte(span.end); i = i.add(steps.inverse())) {
+    let x = horiz.map(i, span);
 
-    if (i === Math.trunc(i)) {
+    if (i.mod().equals(0)) {
       ticks.push(
         <>
           <Line.V x={x} y1={vert.end} y2={vert.end.add(15)} />
@@ -174,7 +215,7 @@ export function Axis() {
             text-anchor="middle"
             dominant-baseline="hanging"
           >
-            {i}
+            {i.toString()}
           </text>
         </>
       );
@@ -186,41 +227,50 @@ export function Axis() {
   return <>{...ticks}</>;
 }
 
+type EdgeStyle = "visible" | "nudged" | "none";
+
 interface HapProps {
-  whole?: Span;
-  part: Span;
+  hap: Hap<unknown>;
   label: string;
+  beginStyle?: EdgeStyle;
+  endStyle?: EdgeStyle;
 }
 
-export function HapRenderer({ whole, part, label }: HapProps) {
+export function HapRenderer({
+  hap: { part, hasOnset, hasOffset },
+  label,
+  beginStyle,
+  endStyle,
+}: HapProps) {
   const {
     span,
     canvas: { horiz, vert },
   } = useContext(Scale);
-  const { begin, end } = part;
-
-  const x1 = horiz.contract(2).map(begin, span);
-  const x2 = horiz.contract(2).map(end, span);
+  const horizSpan = horiz
+    .map(part, span)
+    .contract(beginStyle === "nudged" ? 3 : 0, endStyle === "nudged" ? 3 : 0);
+  const horizInner = horizSpan.contract(2);
 
   const { begin: y1, end: y2 } = vert;
-
-  let hasOnset = whole?.begin.equals(begin) ?? false;
-  let hasOffset = whole?.end.equals(end) ?? false;
 
   return (
     <>
       <rect
-        x={x1.valueOf()}
+        x={horizInner.begin.valueOf()}
         y={y1.valueOf()}
-        width={x2.sub(x1).valueOf()}
+        width={horizInner.length.valueOf()}
         height={vert.length.valueOf()}
         fill={hasOnset ? "#ffffff33" : "#ffffff11"}
         stroke="none"
       />
-      <Line.V x={x1} y1={y1} y2={y2} />
-      <Line.V x={x2} y1={y1} y2={y2} />
+      {beginStyle !== "none" && (
+        <Line.V x={horizSpan.begin} y1={y1} y2={y2} dashed={!hasOnset} />
+      )}
+      {endStyle !== "none" && (
+        <Line.V x={horizSpan.end} y1={y1} y2={y2} dashed={!hasOffset} />
+      )}
       <text
-        x={x1.add(x2.sub(x1).mul(0.5)).valueOf()}
+        x={horizInner.map(new Fraction(1, 2)).valueOf()}
         y={vert.begin.add(vert.length.mul(0.5)).valueOf()}
         fill="currentcolor"
         text-anchor="middle"
@@ -232,48 +282,6 @@ export function HapRenderer({ whole, part, label }: HapProps) {
   );
 }
 
-type style = "solid" | "dashed" | "hidden";
-
-interface SpanProps {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  left?: style;
-  right?: style;
-}
-
-function SpanRenderer({ x, y, width, height, left, right }: SpanProps) {
-  const strokeWidth = 2;
-
-  return (
-    <>
-      {(left === "solid" || left === "dashed") && (
-        <line
-          x1={x + strokeWidth / 2}
-          y1={y}
-          x2={x + strokeWidth / 2}
-          y2={y + height}
-          stroke="currentcolor"
-          stroke-width={strokeWidth}
-          stroke-dasharray={left === "dashed" ? 5 : undefined}
-        />
-      )}
-      {(right === "solid" || right === "dashed") && (
-        <line
-          x1={x + width + strokeWidth / 2}
-          y1={y}
-          x2={x + width + strokeWidth / 2}
-          y2={y + height}
-          stroke="currentcolor"
-          stroke-width={strokeWidth}
-          stroke-dasharray={right === "dashed" ? 5 : undefined}
-        />
-      )}
-    </>
-  );
-}
-
 /* Drawing Primitives */
 
 interface LineProps {
@@ -281,9 +289,10 @@ interface LineProps {
   y1: Fraction;
   x2: Fraction;
   y2: Fraction;
+  dashed?: boolean;
 }
 
-function Line({ x1, y1, x2, y2 }: LineProps) {
+function Line({ x1, y1, x2, y2, dashed }: LineProps) {
   return (
     <line
       x1={x1.valueOf()}
@@ -292,7 +301,7 @@ function Line({ x1, y1, x2, y2 }: LineProps) {
       y2={y2.valueOf()}
       stroke="currentcolor"
       stroke-width={2}
-      // stroke-dasharray={right === "dashed" ? 5 : undefined}
+      stroke-dasharray={dashed ? 5 : undefined}
     />
   );
 }

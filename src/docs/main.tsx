@@ -1,9 +1,22 @@
 import { render } from "preact";
+import { useState, useEffect } from "preact/hooks";
 
-import { StrudelMini, StrudelPattern } from "../lib/strudelmini";
+import { Fraction } from "fraction.js";
+import { StrudelPattern } from "../lib/strudelmini";
 
-import { fastcat } from "@strudel/core";
+import * as Strudel from "@strudel/core";
+import { silence, evaluate, setStringParser, isPattern } from "@strudel/core";
 import { mini } from "@strudel/mini";
+
+setStringParser(mini);
+
+for (let [name, func] of Object.entries(Strudel)) {
+  // @ts-ignore
+  window[name] = func;
+}
+
+// @ts-ignore
+window.mini = mini;
 
 window.addEventListener("load", () => {
   const parent = document.getElementById("output");
@@ -11,51 +24,81 @@ window.addEventListener("load", () => {
   if (parent) {
     render(
       <>
-        <div style="display: flex; flex-direction: column;">
-          <div style="margin-right: 20px;">
-            <StrudelMini miniPattern="a b c d" />
-            <StrudelMini miniPattern="a [b c] d" />
-            <StrudelMini miniPattern="a(3, 8)" />
-            <StrudelMini miniPattern="a b c, a b c d" />
-            <StrudelMini miniPattern="[a b c]*3" highlight={[0.25, 0.75]} />
-          </div>
-          <div>
-            <StrudelMini miniPattern="[a?]*8" span={[0, 2]} />
-            <StrudelMini miniPattern="a <b c>" span={[0, 2]} />
-            <StrudelMini miniPattern="a/2" span={[0, 2]} />
-            <StrudelMini miniPattern="{a b c, a b c d}" span={[0, 2]} />
-          </div>
-          <div>
-            <StrudelPattern
-              pattern={fastcat("fast(1)", "fast(2)", "fast(3)")}
-            />
-            <StrudelPattern
-              title="fast(1)"
-              pattern={mini("a b c d").fast(1)}
-              highlight={[0, [1, 3]]}
-            />
-
-            <StrudelPattern
-              title="fast(2)"
-              pattern={mini("a b c d").fast(2)}
-              highlight={[
-                [1, 3],
-                [2, 3],
-              ]}
-            />
-            <StrudelPattern
-              title="fast(3)"
-              pattern={mini("a b c d").fast(3)}
-              highlight={[[2, 3], 1]}
-            />
-            <StrudelPattern
-              title={'"a b c d".fast("1 2 3")'}
-              pattern={mini("a b c d").fast(mini("1 2 3"))}
-            />
-          </div>
-        </div>
+        <Editor />
       </>,
       parent
     );
   }
 });
+
+function Editor() {
+  const [expr, setExpr] = useState("");
+  const [pattern, setPattern] = useState<any>(silence);
+
+  const [begin, setBegin] = useState("0");
+  const [end, setEnd] = useState("1");
+
+  useEffect(() => {
+    let aborted = false;
+
+    evaluate(expr)
+      .then(({ pattern }: any) => {
+        if (isPattern(pattern)) {
+          setPattern(pattern);
+        }
+      })
+      .catch((e: any) => {
+        console.log("Ignored error");
+      });
+
+    return () => {
+      aborted = true;
+    };
+  }, [expr]);
+
+  return (
+    <>
+      <div class="controls">
+        <input
+          style="flex: 1; font-family: monospace"
+          value={expr}
+          onInput={({ target }) => {
+            if (
+              target &&
+              "value" in target &&
+              typeof target.value === "string"
+            ) {
+              setExpr(target.value);
+            }
+          }}
+        />{" "}
+        {/*
+        <input
+          value={begin}
+          onInput={({ target }) => {
+            if (
+              target &&
+              "value" in target &&
+              typeof target.value === "string"
+            ) {
+              setBegin(target.value);
+            }
+          }}
+        />
+        <input
+          value={end}
+          onInput={({ target }) => {
+            if (
+              target &&
+              "value" in target &&
+              typeof target.value === "string"
+            ) {
+              setEnd(target.value);
+            }
+          }}
+        /> */}
+      </div>
+      <StrudelPattern pattern={pattern} span={[begin, end]} />
+    </>
+  );
+}

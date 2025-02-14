@@ -1,9 +1,3 @@
-html,
-body,
-.main {
-  height: 100%;
-}
-
 body {
   background: #20232b;
   margin: 30px;
@@ -15,6 +9,28 @@ body {
   font-family: monospace;
 }
 
+.controls {
+  display: flex;
+}
+
+.controls input {
+  font-size: 24px;
+  color: #fff;
+  background: inherit;
+  border: solid 2px #6f778c;
+  padding: 10px;
+}
+
+.controls input:focus {
+  background: #ffffff11;
+  border-color: #fff;
+  outline: none;
+}
+
+.controls input:not(:last-child) {
+  margin-right: 10px;
+}
+
 .main {
   display: flex;
   flex-direction: column;
@@ -22,5 +38,5 @@ body {
 
 svg {
   display: block;
-  margin: 20px 0;
+  margin: 20px auto;
 }
