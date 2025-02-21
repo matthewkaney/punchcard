@@ -33,6 +33,7 @@ window.addEventListener("load", () => {
 
 function Editor() {
   const [expr, setExpr] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [pattern, setPattern] = useState<any>(silence);
 
   const [begin, setBegin] = useState("0");
@@ -41,19 +42,31 @@ function Editor() {
   useEffect(() => {
     let aborted = false;
 
-    evaluate(expr)
-      .then(({ pattern }: any) => {
-        if (isPattern(pattern)) {
-          setPattern(pattern);
-        }
-      })
-      .catch((e: any) => {
-        console.log("Ignored error");
-      });
+    if (expr.length > 0) {
+      evaluate(expr)
+        .then(({ pattern }: any) => {
+          if (aborted) return;
 
-    return () => {
-      aborted = true;
-    };
+          if (isPattern(pattern)) {
+            setError(null);
+            setPattern(pattern);
+          } else {
+            setError("Expecting an expression that returns a pattern");
+          }
+        })
+        .catch((e: any) => {
+          if (!aborted) {
+            setError(e.message);
+          }
+        });
+
+      return () => {
+        aborted = true;
+      };
+    } else {
+      setError(null);
+      setPattern(silence);
+    }
   }, [expr]);
 
   return (
@@ -71,7 +84,7 @@ function Editor() {
               setExpr(target.value);
             }
           }}
-        />{" "}
+        />
         {/*
         <input
           value={begin}
@@ -98,6 +111,7 @@ function Editor() {
           }}
         /> */}
       </div>
+      {error && <div style="font-family: monospace">{error}</div>}
       <StrudelPattern pattern={pattern} span={[begin, end]} />
     </>
   );
