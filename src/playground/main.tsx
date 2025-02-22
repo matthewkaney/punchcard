@@ -10,13 +10,13 @@ import { mini } from "@strudel/mini";
 
 setStringParser(mini);
 
-for (let [name, func] of Object.entries(Strudel)) {
-  // @ts-ignore
-  window[name] = func;
-}
+// for (let [name, func] of Object.entries(Strudel)) {
+//   // @ts-ignore
+//   window[name] = func;
+// }
 
-// @ts-ignore
-window.mini = mini;
+// // @ts-ignore
+// window.mini = mini;
 
 window.addEventListener("load", () => {
   const parent = document.getElementById("output");

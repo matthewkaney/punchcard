@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "strict": true,
-    "jsx": "react-jsx",
-    "jsxImportSource": "preact",
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler"

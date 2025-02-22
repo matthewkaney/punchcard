@@ -1,5 +1,12 @@
-import { createContext, VNode } from "preact";
-import { useContext } from "preact/hooks";
+import {
+  createSignal,
+  createEffect,
+  createContext,
+  useContext,
+} from "solid-js";
+import type { JSX } from "solid-js";
+
+import { createElementSize } from "@solid-primitives/resize-observer";
 
 import { Fraction } from "fraction.js";
 import { Span } from "./Span";
@@ -33,6 +40,13 @@ interface DiagramProps {
 }
 
 export function Diagram({ haps, span, title, steps, highlight }: DiagramProps) {
+  const [target, setTarget] = createSignal<HTMLElement>();
+
+  const size = createElementSize(target);
+  createEffect(() => {
+    console.log(size.width);
+  });
+
   let rows = splitIntoRows(haps);
 
   if (rows.length === 0) {
@@ -44,7 +58,12 @@ export function Diagram({ haps, span, title, steps, highlight }: DiagramProps) {
 
   return (
     <Scale.Provider value={{ ...defaultScale, span, steps }}>
-      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <svg
+        ref={setTarget}
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+      >
         <text x="5" y="20" fill="#fff" font-family="monospace">
           {title}
         </text>
@@ -127,7 +146,7 @@ export function RowSlice({ haps, slice, showEdge }: RowSliceProps) {
   let sliceHoriz = horiz.map(slice, span);
   let visibleSlice = sliceHoriz.contract(leftEdge, rightEdge);
 
-  let renderedHaps: VNode[] = [];
+  let renderedHaps: JSX.Element[] = [];
 
   // Slice haps
   haps = intersectHaps(slice, haps);
@@ -196,7 +215,7 @@ export function Axis() {
     canvas: { vert, horiz },
   } = useContext(Scale);
 
-  const ticks: VNode[] = [];
+  const ticks: JSX.Element[] = [];
 
   const steps = new Fraction(providedSteps ?? 1);
   const firstStep = span.begin.mul(steps).ceil().div(steps);
@@ -301,7 +320,7 @@ function Line({ x1, y1, x2, y2, dashed }: LineProps) {
       y2={y2.valueOf()}
       stroke="currentcolor"
       stroke-width={2}
-      stroke-dasharray={dashed ? 5 : undefined}
+      stroke-dasharray={dashed ? "5" : undefined}
     />
   );
 }

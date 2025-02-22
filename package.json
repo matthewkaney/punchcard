@@ -12,16 +12,15 @@
   "author": "Matthew Kaney",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
+    "@solid-primitives/resize-observer": "^2.1.0",
     "@strudel/core": "^1.1.0",
     "@strudel/mini": "^1.1.0",
     "fraction.js": "^5.2.1",
-    "preact": "^10.25.4",
-    "typescript": "^5.7.3"
+    "solid-js": "^1.9.5",
+    "typescript": "^5.7.3",
+    "vite-plugin-solid": "^2.11.2"
   },
   "devDependencies": {
     "vite": "^6.1.0"
-  },
-  "alias": {
-    "preact/jsx-dev-runtime": "preact/jsx-runtime"
   }
 }
