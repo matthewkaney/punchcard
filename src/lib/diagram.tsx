@@ -5,6 +5,7 @@ import {
   useContext,
 } from "solid-js";
 import type { JSX } from "solid-js";
+import { createStore } from "solid-js/store";
 
 import { createElementSize } from "@solid-primitives/resize-observer";
 
@@ -13,23 +14,23 @@ import { Span } from "./Span";
 import { Hap } from "./Hap";
 import { intersectHaps, splitIntoRows } from "./haps";
 
-interface ScaleSpec {
-  span: Span;
-  steps?: number;
-  canvas: { horiz: Span; vert: Span };
+import { Line } from "./renderer/primitives";
+
+interface Rect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
-const defaultScale = {
-  span: new Span(0, 1),
-  canvas: { horiz: new Span(0, 490), vert: new Span(0, 50) },
-};
+const CurrentRect = createContext<() => Rect>(() => ({
+  left: 0,
+  top: 0,
+  width: 100,
+  height: 50,
+}));
 
-const Scale = createContext<ScaleSpec>(defaultScale);
-
-export interface PatternDiagram {
-  dom: HTMLDivElement;
-  setPattern: (pat: any) => void;
-}
+const CurrentSpan = createContext(() => new Span(0, 1));
 
 interface DiagramProps {
   haps: Hap<string | number>[];
@@ -41,10 +42,15 @@ interface DiagramProps {
 
 export function Diagram({ haps, span, title, steps, highlight }: DiagramProps) {
   const [target, setTarget] = createSignal<HTMLElement>();
-
   const size = createElementSize(target);
-  createEffect(() => {
-    console.log(size.width);
+
+  const margin = { left: 5, right: 5 };
+
+  const currentRect = () => ({
+    left: margin.left,
+    top: 0,
+    width: (size.width ?? 100) - (margin.left + margin.right),
+    height: 50,
   });
 
   let rows = splitIntoRows(haps);
@@ -53,30 +59,24 @@ export function Diagram({ haps, span, title, steps, highlight }: DiagramProps) {
     rows = [[]];
   }
 
-  const width = 500;
-  const height = rows.length * 50 + 70;
-
   return (
-    <Scale.Provider value={{ ...defaultScale, span, steps }}>
-      <svg
-        ref={setTarget}
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-      >
-        <text x="5" y="20" fill="#fff" font-family="monospace">
-          {title}
-        </text>
-        {...rows.map((rowHaps, index) => (
-          <g transform={`translate(5, ${30 + 50 * index})`}>
-            <Row haps={rowHaps} highlight={highlight} />
+    <CurrentRect.Provider value={currentRect}>
+      <CurrentSpan.Provider value={() => span}>
+        <svg ref={setTarget} viewBox={`0 0 ${size.width} ${size.height}`}>
+          <text x="5" y="20" fill="#fff" font-family="monospace">
+            {title}
+          </text>
+          {...rows.map((rowHaps, index) => (
+            <g transform={`translate(0, ${30 + 50 * index})`}>
+              <Row haps={rowHaps} highlight={highlight} />
+            </g>
+          ))}
+          <g transform={`translate(0, ${30 + 50 * (rows.length - 1)})`}>
+            {/* <Axis /> */}
           </g>
-        ))}
-        <g transform={`translate(5, ${30 + 50 * (rows.length - 1)})`}>
-          <Axis />
-        </g>
-      </svg>
-    </Scale.Provider>
+        </svg>
+      </CurrentSpan.Provider>
+    </CurrentRect.Provider>
   );
 }
 
@@ -86,8 +86,10 @@ interface RowProps {
 }
 
 export function Row({ haps, highlight }: RowProps) {
-  const { span } = useContext(Scale);
+  const currentSpan = useContext(CurrentSpan);
 
+  // TODO: Currently we're rendering non-highlighted slices as zero-length,
+  // but we should do something more sophisticated to just avoid that rendering code as necessary
   return (
     <>
       <g style="color: #6f778c">
@@ -95,8 +97,8 @@ export function Row({ haps, highlight }: RowProps) {
           haps={haps}
           slice={
             highlight
-              ? span.crop(span.begin, highlight.begin)
-              : new Span(span.begin, span.begin)
+              ? currentSpan().crop(currentSpan().begin, highlight.begin)
+              : new Span(currentSpan().begin, currentSpan().begin)
           }
           showEdge="left"
         />
@@ -104,7 +106,7 @@ export function Row({ haps, highlight }: RowProps) {
       <g style="color: #ffffff">
         <RowSlice
           haps={haps}
-          slice={highlight ? span.intersect(highlight) : span}
+          slice={highlight ? currentSpan().intersect(highlight) : currentSpan()}
         />
       </g>
       <g style="color: #6f778c">
@@ -112,8 +114,8 @@ export function Row({ haps, highlight }: RowProps) {
           haps={haps}
           slice={
             highlight
-              ? span.crop(highlight.end, span.end)
-              : new Span(span.end, span.end)
+              ? currentSpan().crop(highlight.end, currentSpan().end)
+              : new Span(currentSpan().end, currentSpan().end)
           }
           showEdge="right"
         />
@@ -131,20 +133,28 @@ interface RowSliceProps {
 }
 
 export function RowSlice({ haps, slice, showEdge }: RowSliceProps) {
+  // TODO: This is currently not reactive
   if (slice === null || slice.length.equals(0)) {
     return undefined;
   }
 
+  const currentRect = useContext(CurrentRect);
+  const currentSpan = useContext(CurrentSpan);
+
+  const top = () => currentRect().top + 1;
+  const bottom = () => currentRect().top + currentRect().height - 1;
+
   const leftEdge = showEdge === "right" || showEdge === "none" ? 1 : -1;
   const rightEdge = showEdge === "left" || showEdge === "none" ? 1 : -1;
 
-  const {
-    canvas: { vert, horiz },
-    span,
-  } = useContext(Scale);
-
-  let sliceHoriz = horiz.map(slice, span);
-  let visibleSlice = sliceHoriz.contract(leftEdge, rightEdge);
+  const visibleSlice = () => {
+    return new Span(
+      currentRect().left,
+      currentRect().left + currentRect().width
+    )
+      .map(slice, currentSpan())
+      .contract(leftEdge, rightEdge);
+  };
 
   let renderedHaps: JSX.Element[] = [];
 
@@ -181,26 +191,18 @@ export function RowSlice({ haps, slice, showEdge }: RowSliceProps) {
 
   return (
     <>
-      <Line.H
-        x1={visibleSlice.begin}
-        x2={visibleSlice.end}
-        y={vert.begin.sub(1)}
-      />
-      <Line.H
-        x1={visibleSlice.begin}
-        x2={visibleSlice.end}
-        y={vert.end.add(1)}
-      />
+      <Line.H x1={visibleSlice().begin} x2={visibleSlice().end} y={top()} />
+      <Line.H x1={visibleSlice().begin} x2={visibleSlice().end} y={bottom()} />
       {
         /* We're assuming haps are sorted here */
         (haps.length === 0 || !haps[0].follows(slice.begin)) && (
-          <Line.V x={sliceHoriz.begin} y1={vert.begin} y2={vert.end} />
+          <Line.V x={visibleSlice().begin} y1={top()} y2={bottom()} />
         )
       }
       {
         /* We're assuming haps are sorted here */
         (haps.length === 0 || !haps[haps.length - 1].leads(slice.end)) && (
-          <Line.V x={sliceHoriz.end} y1={vert.begin} y2={vert.end} />
+          <Line.V x={visibleSlice().end} y1={top()} y2={bottom()} />
         )
       }
       {renderedHaps}
@@ -208,43 +210,43 @@ export function RowSlice({ haps, slice, showEdge }: RowSliceProps) {
   );
 }
 
-export function Axis() {
-  const {
-    span,
-    steps: providedSteps,
-    canvas: { vert, horiz },
-  } = useContext(Scale);
+// export function Axis() {
+//   const {
+//     span,
+//     steps: providedSteps,
+//     canvas: { vert, horiz },
+//   } = useContext(Scale);
 
-  const ticks: JSX.Element[] = [];
+//   const ticks: JSX.Element[] = [];
 
-  const steps = new Fraction(providedSteps ?? 1);
-  const firstStep = span.begin.mul(steps).ceil().div(steps);
+//   const steps = new Fraction(providedSteps ?? 1);
+//   const firstStep = span.begin.mul(steps).ceil().div(steps);
 
-  for (let i = firstStep; i.lte(span.end); i = i.add(steps.inverse())) {
-    let x = horiz.map(i, span);
+//   for (let i = firstStep; i.lte(span.end); i = i.add(steps.inverse())) {
+//     let x = horiz.map(i, span);
 
-    if (i.mod().equals(0)) {
-      ticks.push(
-        <>
-          <Line.V x={x} y1={vert.end} y2={vert.end.add(15)} />
-          <text
-            x={x.valueOf()}
-            y={vert.end.add(18).valueOf()}
-            fill="white"
-            text-anchor="middle"
-            dominant-baseline="hanging"
-          >
-            {i.toString()}
-          </text>
-        </>
-      );
-    } else {
-      ticks.push(<Line.V x={x} y1={vert.end.add(0)} y2={vert.end.add(15)} />);
-    }
-  }
+//     if (i.mod().equals(0)) {
+//       ticks.push(
+//         <>
+//           <Line.V x={x} y1={vert.end} y2={vert.end.add(15)} />
+//           <text
+//             x={x.valueOf()}
+//             y={vert.end.add(18).valueOf()}
+//             fill="white"
+//             text-anchor="middle"
+//             dominant-baseline="hanging"
+//           >
+//             {i.toString()}
+//           </text>
+//         </>
+//       );
+//     } else {
+//       ticks.push(<Line.V x={x} y1={vert.end.add(0)} y2={vert.end.add(15)} />);
+//     }
+//   }
 
-  return <>{...ticks}</>;
-}
+//   return <>{...ticks}</>;
+// }
 
 type EdgeStyle = "visible" | "nudged" | "none";
 
@@ -261,36 +263,47 @@ export function HapRenderer({
   beginStyle,
   endStyle,
 }: HapProps) {
-  const {
-    span,
-    canvas: { horiz, vert },
-  } = useContext(Scale);
-  const horizSpan = horiz
-    .map(part, span)
-    .contract(beginStyle === "nudged" ? 3 : 0, endStyle === "nudged" ? 3 : 0);
-  const horizInner = horizSpan.contract(2);
+  const currentRect = useContext(CurrentRect);
+  const currentSpan = useContext(CurrentSpan);
 
-  const { begin: y1, end: y2 } = vert;
+  const horizSpan = () =>
+    new Span(currentRect().left, currentRect().left + currentRect().width)
+      .map(part, currentSpan())
+      .contract(beginStyle === "nudged" ? 3 : 0, endStyle === "nudged" ? 3 : 0);
+  const horizInner = () => horizSpan().contract(2);
+
+  const top = () => currentRect().top;
+  const bottom = () => currentRect().top + currentRect().height;
 
   return (
     <>
       <rect
-        x={horizInner.begin.valueOf()}
-        y={y1.valueOf()}
-        width={horizInner.length.valueOf()}
-        height={vert.length.valueOf()}
+        x={horizInner().begin.valueOf()}
+        y={currentRect().top}
+        width={horizInner().length.valueOf()}
+        height={currentRect().height}
         fill={hasOnset ? "#ffffff33" : "#ffffff11"}
         stroke="none"
       />
       {beginStyle !== "none" && (
-        <Line.V x={horizSpan.begin} y1={y1} y2={y2} dashed={!hasOnset} />
+        <Line.V
+          x={horizSpan().begin}
+          y1={top()}
+          y2={bottom()}
+          dashed={!hasOnset}
+        />
       )}
       {endStyle !== "none" && (
-        <Line.V x={horizSpan.end} y1={y1} y2={y2} dashed={!hasOffset} />
+        <Line.V
+          x={horizSpan().end}
+          y1={top()}
+          y2={bottom()}
+          dashed={!hasOffset}
+        />
       )}
       <text
-        x={horizInner.map(new Fraction(1, 2)).valueOf()}
-        y={vert.begin.add(vert.length.mul(0.5)).valueOf()}
+        x={horizInner().map("1/2").valueOf()}
+        y={top() + currentRect().height * 0.5}
         fill="currentcolor"
         text-anchor="middle"
         dominant-baseline="middle"
@@ -300,39 +313,3 @@ export function HapRenderer({
     </>
   );
 }
-
-/* Drawing Primitives */
-
-interface LineProps {
-  x1: Fraction;
-  y1: Fraction;
-  x2: Fraction;
-  y2: Fraction;
-  dashed?: boolean;
-}
-
-function Line({ x1, y1, x2, y2, dashed }: LineProps) {
-  return (
-    <line
-      x1={x1.valueOf()}
-      y1={y1.valueOf()}
-      x2={x2.valueOf()}
-      y2={y2.valueOf()}
-      stroke="currentcolor"
-      stroke-width={2}
-      stroke-dasharray={dashed ? "5" : undefined}
-    />
-  );
-}
-
-type LineVProps = Omit<LineProps, "x1" | "x2"> & { x: Fraction };
-
-Line.V = ({ x, ...props }: LineVProps) => {
-  return <Line x1={x} x2={x} {...props} />;
-};
-
-type LineHProps = Omit<LineProps, "y1" | "y2"> & { y: Fraction };
-
-Line.H = ({ y, ...props }: LineHProps) => {
-  return <Line y1={y} y2={y} {...props} />;
-};
