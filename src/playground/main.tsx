@@ -1,80 +1,70 @@
-import { render } from "preact";
-import { useState, useEffect } from "preact/hooks";
+import { createSignal, createResource, createEffect, Show } from "solid-js";
+import { render } from "solid-js/web";
 
 import { Fraction } from "fraction.js";
 import { StrudelPattern } from "../lib/strudelmini";
 
+//@ts-ignore
 import * as Strudel from "@strudel/core";
+//@ts-ignore
 import { silence, evaluate, setStringParser, isPattern } from "@strudel/core";
 import { mini } from "@strudel/mini";
 
 setStringParser(mini);
 
-// for (let [name, func] of Object.entries(Strudel)) {
-//   // @ts-ignore
-//   window[name] = func;
-// }
+for (let [name, func] of Object.entries(Strudel)) {
+  // @ts-ignore
+  window[name] = func;
+}
 
-// // @ts-ignore
-// window.mini = mini;
+// @ts-ignore
+window.mini = mini;
 
 window.addEventListener("load", () => {
   const parent = document.getElementById("output");
 
   if (parent) {
-    render(
-      <>
-        <Editor />
-      </>,
-      parent
-    );
+    render(() => <Editor />, parent);
   }
 });
 
 function Editor() {
-  const [expr, setExpr] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pattern, setPattern] = useState<any>(silence);
+  const [expr, setExpr] = createSignal("");
 
-  const [begin, setBegin] = useState("0");
-  const [end, setEnd] = useState("1");
+  // const [begin, setBegin] = useState("0");
+  // const [end, setEnd] = useState("1");
 
-  useEffect(() => {
-    let aborted = false;
+  const begin = 0;
+  const end = 1;
 
-    if (expr.length > 0) {
-      evaluate(expr)
-        .then(({ pattern }: any) => {
-          if (aborted) return;
+  let [pattern] = createResource(
+    expr,
+    async (currentExpr) => {
+      if (currentExpr.length === 0) {
+        return silence;
+      }
 
-          if (isPattern(pattern)) {
-            setError(null);
-            setPattern(pattern);
-          } else {
-            setError("Expecting an expression that returns a pattern");
-          }
-        })
-        .catch((e: any) => {
-          if (!aborted) {
-            setError(e.message);
-          }
-        });
+      let { pattern } = await evaluate(currentExpr);
 
-      return () => {
-        aborted = true;
-      };
-    } else {
-      setError(null);
-      setPattern(silence);
-    }
-  }, [expr]);
+      if (!isPattern(pattern)) {
+        throw new Error("Expecting an expression that returns a pattern");
+      }
+
+      return pattern;
+    },
+    { initialValue: silence }
+  );
+
+  createEffect(() => {
+    console.log(pattern.error);
+  });
 
   return (
     <>
       <div class="controls">
         <input
           style="flex: 1; font-family: monospace"
-          value={expr}
+          value={expr()}
           onInput={({ target }) => {
             if (
               target &&
@@ -111,8 +101,10 @@ function Editor() {
           }}
         /> */}
       </div>
-      {error && <div style="font-family: monospace">{error}</div>}
-      <StrudelPattern pattern={pattern} span={[begin, end]} />
+      <Show when={pattern.error}>
+        {(error) => <div style="font-family: monospace">{error().message}</div>}
+      </Show>
+      <StrudelPattern pattern={pattern()} span={[begin, end]} />
     </>
   );
 }

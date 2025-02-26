@@ -11,18 +11,14 @@ interface StrudelMiniProps {
   highlight?: [number, number];
 }
 
-export function StrudelMini({
-  miniPattern,
-  span,
-  highlight,
-}: StrudelMiniProps) {
-  const pattern = mini(miniPattern);
+export function StrudelMini(props: StrudelMiniProps) {
+  const pattern = () => mini(miniPattern);
   return (
     <StrudelPattern
-      title={`"${miniPattern}"`}
-      pattern={pattern}
-      span={span}
-      highlight={highlight}
+      title={`"${props.miniPattern}"`}
+      pattern={pattern()}
+      span={props.span}
+      highlight={props.highlight}
     />
   );
 }
@@ -41,27 +37,28 @@ interface StrudelPatternProps {
   span?: [FractionInput, FractionInput];
 }
 
-export function StrudelPattern({
-  title,
-  pattern,
-  span,
-  highlight,
-}: StrudelPatternProps) {
-  const [begin, end] = span ?? [0, 1];
-  const haps = pattern
-    .queryArc(begin, end)
-    .map(
-      ({ whole, part, value }) =>
-        new Hap(portSpan(whole), portSpan(part), value)
-    );
+export function StrudelPattern(props: StrudelPatternProps) {
+  const [begin, end] = props.span ?? [0, 1];
+
+  const haps = () =>
+    props.pattern
+      .queryArc(begin, end)
+      .map(
+        ({ whole, part, value }) =>
+          new Hap(portSpan(whole), portSpan(part), value)
+      );
 
   return (
     <Diagram
-      title={title}
-      haps={haps}
+      title={props.title}
+      haps={haps()}
       span={new Span(begin, end)}
-      steps={pattern.tactus}
-      highlight={highlight ? new Span(highlight[0], highlight[1]) : undefined}
+      steps={props.pattern.tactus}
+      highlight={
+        props.highlight
+          ? new Span(props.highlight[0], props.highlight[1])
+          : undefined
+      }
     />
   );
 }

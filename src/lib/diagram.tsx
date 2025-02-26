@@ -5,7 +5,6 @@ import {
   useContext,
 } from "solid-js";
 import type { JSX } from "solid-js";
-import { createStore } from "solid-js/store";
 
 import { createElementSize } from "@solid-primitives/resize-observer";
 
@@ -40,7 +39,7 @@ interface DiagramProps {
   highlight?: Span;
 }
 
-export function Diagram({ haps, span, title, steps, highlight }: DiagramProps) {
+export function Diagram(props: DiagramProps) {
   const [target, setTarget] = createSignal<HTMLElement>();
   const size = createElementSize(target);
 
@@ -53,22 +52,21 @@ export function Diagram({ haps, span, title, steps, highlight }: DiagramProps) {
     height: 50,
   });
 
-  let rows = splitIntoRows(haps);
-
-  if (rows.length === 0) {
-    rows = [[]];
-  }
+  const rows = () => {
+    const hapRows = splitIntoRows(props.haps);
+    return hapRows.length > 0 ? hapRows : [[]];
+  };
 
   return (
     <CurrentRect.Provider value={currentRect}>
-      <CurrentSpan.Provider value={() => span}>
+      <CurrentSpan.Provider value={() => props.span}>
         <svg ref={setTarget} viewBox={`0 0 ${size.width} ${size.height}`}>
           <text x="5" y="20" fill="#fff" font-family="monospace">
-            {title}
+            {props.title}
           </text>
-          {...rows.map((rowHaps, index) => (
+          {...rows().map((rowHaps, index) => (
             <g transform={`translate(0, ${30 + 50 * index})`}>
-              <Row haps={rowHaps} highlight={highlight} />
+              <Row haps={rowHaps} highlight={props.highlight} />
             </g>
           ))}
           <g transform={`translate(0, ${30 + 50 * (rows.length - 1)})`}>
