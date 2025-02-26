@@ -3,6 +3,7 @@ import {
   createEffect,
   createContext,
   useContext,
+  For,
 } from "solid-js";
 import type { JSX } from "solid-js";
 
@@ -69,8 +70,11 @@ export function Diagram(props: DiagramProps) {
               <Row haps={rowHaps} highlight={props.highlight} />
             </g>
           ))}
-          <g transform={`translate(0, ${30 + 50 * (rows.length - 1)})`}>
-            {/* <Axis /> */}
+          <g
+            transform={`translate(0, ${30 + 50 * (rows.length + 1)})`}
+            style="color: #ffffff"
+          >
+            <Axis steps={props.steps} />
           </g>
         </svg>
       </CurrentSpan.Provider>
@@ -208,43 +212,64 @@ export function RowSlice({ haps, slice, showEdge }: RowSliceProps) {
   );
 }
 
-// export function Axis() {
-//   const {
-//     span,
-//     steps: providedSteps,
-//     canvas: { vert, horiz },
-//   } = useContext(Scale);
+interface AxisProps {
+  steps?: number;
+}
 
-//   const ticks: JSX.Element[] = [];
+export function Axis(props: AxisProps) {
+  const currentRect = useContext(CurrentRect);
+  const currentSpan = useContext(CurrentSpan);
 
-//   const steps = new Fraction(providedSteps ?? 1);
-//   const firstStep = span.begin.mul(steps).ceil().div(steps);
+  const ticks = () => {
+    const steps = new Fraction(props.steps ?? 1);
+    const firstStep = currentSpan().begin.mul(steps).ceil().div(steps);
 
-//   for (let i = firstStep; i.lte(span.end); i = i.add(steps.inverse())) {
-//     let x = horiz.map(i, span);
+    const tickValues: Fraction[] = [];
 
-//     if (i.mod().equals(0)) {
-//       ticks.push(
-//         <>
-//           <Line.V x={x} y1={vert.end} y2={vert.end.add(15)} />
-//           <text
-//             x={x.valueOf()}
-//             y={vert.end.add(18).valueOf()}
-//             fill="white"
-//             text-anchor="middle"
-//             dominant-baseline="hanging"
-//           >
-//             {i.toString()}
-//           </text>
-//         </>
-//       );
-//     } else {
-//       ticks.push(<Line.V x={x} y1={vert.end.add(0)} y2={vert.end.add(15)} />);
-//     }
-//   }
+    for (
+      let i = firstStep;
+      i.lte(currentSpan().end);
+      i = i.add(steps.inverse())
+    ) {
+      tickValues.push(i);
+    }
 
-//   return <>{...ticks}</>;
-// }
+    return tickValues;
+  };
+
+  return (
+    <>
+      <For each={ticks()}>
+        {(tick) => {
+          let x = () =>
+            new Span(
+              currentRect().left,
+              currentRect().left + currentRect().width
+            ).map(tick, currentSpan());
+
+          if (tick.mod().equals(0)) {
+            return (
+              <>
+                <Line.V x={x()} y1={0} y2={15} />
+                <text
+                  x={x().valueOf()}
+                  y={18}
+                  fill="white"
+                  text-anchor="middle"
+                  dominant-baseline="hanging"
+                >
+                  {tick.toString()}
+                </text>
+              </>
+            );
+          } else {
+            return <Line.V x={x()} y1={0} y2={15} />;
+          }
+        }}
+      </For>
+    </>
+  );
+}
 
 type EdgeStyle = "visible" | "nudged" | "none";
 
