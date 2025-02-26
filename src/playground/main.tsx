@@ -29,7 +29,22 @@ window.addEventListener("load", () => {
 });
 
 function Editor() {
-  const [expr, setExpr] = createSignal("");
+  const initialExpr = atob(window.location.search.slice(1));
+  const [expr, setExpr] = createSignal(initialExpr);
+
+  createEffect(() => {
+    let currExpr = expr();
+
+    window.history.replaceState(
+      null,
+      "",
+      window.location.origin +
+        window.location.pathname +
+        (currExpr.length === 0 ? "" : "?" + btoa(expr()))
+    );
+  });
+
+  const [pattern, setPattern] = createSignal(silence);
 
   // const [begin, setBegin] = useState("0");
   // const [end, setEnd] = useState("1");
@@ -37,7 +52,7 @@ function Editor() {
   const begin = 0;
   const end = 1;
 
-  let [pattern] = createResource(
+  let [parser] = createResource(
     expr,
     async (currentExpr) => {
       if (currentExpr.length === 0) {
@@ -55,8 +70,11 @@ function Editor() {
     { initialValue: silence }
   );
 
+  // Effect to update the diagram on successful parse
   createEffect(() => {
-    console.log(pattern.error);
+    if (parser.error === undefined) {
+      setPattern(parser.latest);
+    }
   });
 
   return (
@@ -101,7 +119,7 @@ function Editor() {
           }}
         /> */}
       </div>
-      <Show when={pattern.error}>
+      <Show when={parser.error}>
         {(error) => <div style="font-family: monospace">{error().message}</div>}
       </Show>
       <StrudelPattern pattern={pattern()} span={[begin, end]} />
